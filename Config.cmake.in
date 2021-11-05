@@ -1,0 +1,19 @@
+@PACKAGE_INIT@
+
+mark_as_advanced(Mobile_INCLUDE_DIRS)
+set(Mobile_INCLUDE_DIRS "${PACKAGE_PREFIX_DIR}/include")
+
+include(CMakeFindDependencyMacro)
+
+include("${CMAKE_CURRENT_LIST_DIR}/MobileTarget.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/MobileStaticTarget.cmake")
+
+mark_as_advanced(Mobile_LIBRARIES)
+
+if (Mobile_USE_STATIC_LIBS)
+    set(Mobile_LIBRARIES mobile-static)
+else()
+    set(Mobile_LIBRARIES mobile)
+endif()
+
+check_required_components("@project_name@")

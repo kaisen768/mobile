@@ -50,3 +50,10 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# ide directory
+.cppsolution/
+.vscode/
+.cache/
+BuildFiles/
+build/
