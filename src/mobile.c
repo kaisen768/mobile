@@ -35,6 +35,7 @@ static void mobile_handler(uv_timer_t *handle)
     atchannel_t *atchannel = &mobile->atchannel;
     apnconf_t *apnconf = &mobile->apnconf;
     dial_t *dial = &mobile->dial;
+    pppd_module_t *pppd = &dial->pppd;
 
     static unsigned int usbdevice_lost_count = 0;
     static abnormal_state_t abnormal_state = ABNORMAL_STATE_NONE;
@@ -149,8 +150,20 @@ static void mobile_handler(uv_timer_t *handle)
             if (++apn_err_times >= apnconf->count)
                 apnconf->changeto_xml(apnconf);
 
-            if (dial->args(dial, apn) == 0)
-                MOBILE_STATE_JUMPTO(MOBILE_STATE_DIALPROCS_CHECK);
+            /*
+             *  the user can configure the ppp parameters by calling the 
+             *   < dial->pppd.arg_set >
+             * interface, otherwise the default parameters will be used
+             *      interface : "ppp0"
+             *      proc_name : "pppd"
+             *      chat_file : "/tmp/chat-default"
+             */
+            // pppd->arg_set(pppd, interface, PPPD_ARG_interface);
+            // pppd->arg_set(pppd, exec, PPPD_ARG_EXEC);
+            // pppd->arg_set(pppd, chat_file, PPPD_ARG_CHAT_FILE);
+            pppd->arg_set(pppd, apn, PPPD_ARG_APN);
+
+            MOBILE_STATE_JUMPTO(MOBILE_STATE_DIALPROCS_CHECK);
         } else if (dial->status == DIAL_REMAIN) {
             MOBILE_STATE_JUMPTO(MOBILE_STATE_DIALPROCS_CHECK);
         }
@@ -183,8 +196,8 @@ static void mobile_handler(uv_timer_t *handle)
 
                 MOBILE_STATE_JUMPTO(MOBILE_STATE_DIALHOLDS_CHECK);
             } else if (dial->status == DIAL_REMAIN) {
-                if (pthread_kill(pppd_pid(dial->pppd), 0) != ESRCH)
-                    uv_kill(pppd_pid(dial->pppd), SIGTERM);
+                if (pthread_kill(pppd->pid, 0) != ESRCH)
+                    uv_kill(pppd->pid, SIGTERM);
                 else
                     dial->status = DIAL_UNOPENED;
                 goto delay3000ms;

@@ -47,6 +47,8 @@ if(MOBILE_USE_JEMALLOC)
   list(APPEND mobile_include_dirs ${JEMALLOC_INCLUDE_DIR})
 endif(MOBILE_USE_JEMALLOC)
 
+list(APPEND mobile_include_dirs "${mobile_SOURCE_DIR}/src")
+
 include_directories(${mobile_include_dirs})
 
 # source file
@@ -54,6 +56,11 @@ include_directories(${mobile_include_dirs})
 mark_as_advanced(mobile_srcs)
 
 aux_source_directory(${mobile_SOURCE_DIR}/src mobile_srcs)
+aux_source_directory(${mobile_SOURCE_DIR}/src/ATChannel mobile_srcs)
+aux_source_directory(${mobile_SOURCE_DIR}/src/ATChannel/communication mobile_srcs)
+aux_source_directory(${mobile_SOURCE_DIR}/src/ATChannel/structure mobile_srcs)
+aux_source_directory(${mobile_SOURCE_DIR}/src/Dial mobile_srcs)
+aux_source_directory(${mobile_SOURCE_DIR}/src/Dial/pppd mobile_srcs)
 
 # package
 ######################################################################
@@ -148,3 +155,16 @@ if(MOBILE_USE_JEMALLOC)
       "$<BUILD_INTERFACE:${JEMALLOC_INCLUDE_DIR}>"
       "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}>")
 endif()
+
+# example compile
+######################################################################
+set(EXAMPLE_NAME "${PROJECT_NAME}exc")
+
+add_executable(${EXAMPLE_NAME} ${mobile_SOURCE_DIR}/example/example.c)
+
+target_link_libraries(${EXAMPLE_NAME} 
+  mobile-static
+  pthread
+  dl
+  m
+  )

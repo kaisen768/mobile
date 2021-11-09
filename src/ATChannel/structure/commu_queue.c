@@ -83,35 +83,12 @@ struct lb_queue_t
     bool (*put)(struct lb_queue_t *const thiz, const void *const element);
 
     /** 
-     * Inserts the specified element into this queue, waiting up to the
-     * specified wait time if necessary for space to become available.
-     *
-     * @param thiz this
-     * @param element the element to add
-     * @param timeout how long to wait before giving up, in units of unit
-     * @param unit a time_unit_t determining how to interpret the timeout parameter
-     * @return true if successful, or false if the specified waiting time elapses before space is available
-     */
-    bool (*offer_await)(struct lb_queue_t *const thiz, const void *const element, const uint64_t timeout, const struct time_unit_t *const unit);
-
-    /** 
      * Retrieves and removes the head of this queue, waiting if necessary until an element becomes available.
      *
      * @param thiz this
      * @return the head of this queue
      */
     void *(*take)(struct lb_queue_t *const thiz);
-
-    /** 
-     * Retrieves and removes the head of this queue, waiting up to the
-     * specified wait time if necessary for an element to become available.
-     *
-     * @param thiz this
-     * @param timeout how long to wait before giving up, in units of unit
-     * @param unit a time_unit_t determining how to interpret the timeout parameter
-     * @return the head of this queue, or NULL if the specified waiting time elapses before an element is available
-     */
-    void *(*poll_await)(struct lb_queue_t *const thiz, const uint64_t timeout, const struct time_unit_t *const unit);
 
     /* queue capacity */
     uint32_t _capacity;
@@ -426,127 +403,7 @@ static void *lb_queue_take(struct lb_queue_t *const thiz)
     return item;
 }
 
-/*
-static bool lb_queue_offer_wait(struct lb_queue_t *const thiz, const void *const element,
-                                const uint64_t timeout, const struct time_unit_t *const unit)
-{
-    if (!thiz || !element || !unit)
-    {
-        errno = EINVAL;
-        return false;
-    }
-
-    int c;
-
-    pthread_mutex_lock(&thiz->_put_lock);
-    struct timespec timeo;
-    uint64_t nano_timeout;
-    uint64_t nanos;
-    int64_t nanotime;
-
-    calc_timeout(&timeo, timeout, unit);
-    nano_timeout = timespec_to_nano(&timeo);
-    nanos = nano_timeout;
-
-    while (thiz->_count == thiz->_capacity)
-    {
-        if (nanos <= 0)
-            goto result_r;
-
-        if (pthread_cond_timedwait(&thiz->_not_full, &thiz->_put_lock, &timeo) == ETIMEDOUT)
-            goto result_r;
-
-        if ((nanotime = nano_time()) < 0)
-            goto result_r;
-
-        nanos = nano_timeout - nanotime;
-    }
-
-    struct _node_t *new_node = (struct _node_t *)malloc(sizeof(struct _node_t));
-    if (!new_node)
-    {
-        errno = ENOMEM;
-        goto result_r;
-    }
-    new_node->item = element;
-    new_node->next = NULL;
-
-    _enqueue(thiz, new_node);
-    c = atomic_fetch_add(&thiz->_count, 1);
-    if (c + 1 < thiz->_capacity)
-        pthread_cond_signal(&thiz->_not_full);
-
-    pthread_mutex_unlock(&thiz->_put_lock);
-
-    if (c == 0)
-        _signal_not_empty(thiz);
-
-    return true;
-
-result_r:
-    pthread_mutex_unlock(&thiz->_put_lock);
-
-    return false;
-}
-*/
-
-/*
-static void *lb_queue_poll_wait(struct lb_queue_t *const thiz, const uint64_t timeout, const struct time_unit_t *const unit)
-{
-    if (!thiz || !unit)
-    {
-        errno = ENOMEM;
-        return NULL;
-    }
-
-    void *item = NULL;
-    int c;
-
-    pthread_mutex_lock(&thiz->_take_lock);
-
-    struct timespec timeo;
-    uint64_t nano_timeout;
-    uint64_t nanos;
-    int64_t nanotime;
-
-    calc_timeout(&timeo, timeout, unit);
-    nano_timeout = timespec_to_nano(&timeo);
-    nanos = nano_timeout;
-
-    while (thiz->_count == 0)
-    {
-        if (nanos <= 0)
-            goto result_r;
-
-        if (pthread_cond_timedwait(&thiz->_not_empty, &thiz->_take_lock, &timeo) == ETIMEDOUT)
-            goto result_r;
-
-        if ((nanotime = nano_time()) < 0)
-            goto result_r;
-
-        nanos = nano_timeout - nanotime;
-    }
-
-    item = _dequeue(thiz);
-    c = atomic_fetch_sub(&thiz->_count, 1);
-    if (c > 1)
-        pthread_cond_signal(&thiz->_not_empty);
-
-    pthread_mutex_unlock(&thiz->_take_lock);
-
-    if (c == thiz->_capacity)
-        pthread_cond_signal(&thiz->_not_full);
-
-    return item;
-
-result_r:
-    pthread_mutex_unlock(&thiz->_take_lock);
-
-    return item;
-}
-*/
-
-struct commu_queue_t *lb_queue(const uint32_t capacity)
+struct commu_queue_t *commu_queue(const uint32_t capacity)
 {
     pthread_condattr_t cond_attr;
 

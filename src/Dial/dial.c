@@ -2,16 +2,15 @@
 #include <stdlib.h>
 #include "dial.h"
 #include "ipaddr.h"
-#include "args.h"
 
-#define PROCESS_PIPE_BUFFER_MAX_SIZE    1024
+#define RECEIVE_BUFFER_SIZE 1024
+
+static char receivebuffer[RECEIVE_BUFFER_SIZE];
 
 static void alloc_callback(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf)
 {
-    dial_t *dial = handle->data;
-
-    buf->base = dial->_buf.base;
-    buf->len = dial->_buf.len;
+    buf->base = receivebuffer;
+    buf->len = RECEIVE_BUFFER_SIZE;
 }
 
 static void exit_callback(uv_process_t *req, int64_t exit_status, int term_signal)
@@ -43,10 +42,8 @@ static uv_pid_t invoke_script(struct dial_s *dial)
     if (!dial)
         return -1;
 
-    if (!dial->pppd)
-        return -1;
-
-    char **args = dial->pppd->args;
+    pppd_module_t *pppd = &dial->pppd;
+    char **args = pppd->args;
 
     dial->_opts.stdio_count = 3;
     uv_stdio_container_t child_stdio[3];
@@ -71,18 +68,10 @@ static uv_pid_t invoke_script(struct dial_s *dial)
 
 static void start(struct dial_s *dial, char *interface, char *proc, char *chat_file)
 {
-    PPPDmodule_t *pppd;
-
     if (!dial)
         return;
 
-    if (pppd) {
-        pppd = get_PPPDmodule();
-        if (!pppd)
-            return;
-    }
-    dial->pppd = pppd;
-    PPPDmodule_setup(pppd, NULL, proc, NULL);
+    pppd_module_t *pppd = &dial->pppd;
 
     dial->_proc.data = dial;
     dial->_pipe_read.data = dial;
@@ -90,27 +79,16 @@ static void start(struct dial_s *dial, char *interface, char *proc, char *chat_f
     /* pipe initalize */
     uv_pipe_init(dial->loop, &dial->_pipe_read, 0);
 
-    /* receive stream buffer */
-    dial->_buf.base = malloc(PROCESS_PIPE_BUFFER_MAX_SIZE);
-    if (!dial->_buf.base)
-        goto err0;
-    dial->_buf.len = PROCESS_PIPE_BUFFER_MAX_SIZE;
-
     /* invoke pppd script */
+    pppd->generate_args(pppd);
     pppd->pid = invoke_script(dial);
     if (pppd->pid == -1)
-        goto err1;
+        return;
 
     uv_read_start((uv_stream_t*)&dial->_pipe_read, alloc_callback, on_stream_receive);
 
     dial->status = DIAL_PROCESSING;
 
-err1:
-    free(dial->_buf.base);
-    dial->_buf.base = NULL;
-err0:
-    PPPDmodule_release(pppd);
-    dial->pppd = NULL;
     return;
 }
 
@@ -125,29 +103,23 @@ static void stop(struct dial_s *dial)
 
     uv_close((uv_handle_t*)&dial->_proc, NULL);
 
-    if (dial->_buf.base) {
-        free(dial->_buf.base);
-        dial->_buf.base = NULL;
-    }
-
-    PPPDmodule_release(dial->pppd);
-    dial->pppd = NULL;
-
     if (dial->status != DIAL_REMAIN)
         dial->status = DIAL_UNOPENED;
 
     return;
 }
 
-static bool check_ppp0_online(struct dial_s *dial)
+static bool check_online(struct dial_s *dial)
 {
     if (!dial)
         return false;
 
-    if (dial->pppd->pid < 0 || dial->pppd->interface == NULL)
+    pppd_module_t *pppd = &dial->pppd;
+
+    if (pppd->pid < 0)
         return false;
 
-    if (get_interface_ipaddr(dial->pppd->interface, dial->pppd->ip, sizeof(dial->pppd->ip)) != 0)
+    if (get_interface_ipaddr(pppd->interface, pppd->ip, sizeof(pppd->ip)) != 0)
         return false;
 
     return true;
@@ -159,12 +131,13 @@ int dial_init(dial_t *dial, uv_loop_t *loop)
         return -1;
 
     dial->loop = loop;
-    dial->pppd = NULL;
     dial->status = DIAL_UNOPENED;
+
     dial->start = start;
     dial->stop = stop;
-    dial->args = args_setup;
-    dial->online = check_ppp0_online;
+    dial->online = check_online;
+
+    pppd_module_init(&dial->pppd);
 
     return 0;
 }

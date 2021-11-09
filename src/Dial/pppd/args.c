@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "args.h"
-#include "dial.h"
 
 // ----------------------------------------------------------------------------
 //  PPPD Chat Connect File Configure
@@ -50,51 +49,38 @@ static inline int chat_file_config(const char *filename, const char *apn)
 // ----------------------------------------------------------------------------
 // pppd debug nodetach /dev/ttyUSB0 115200 usepeerdns noauth noipdefault novj novjccomp noccp defaultroute ipcp-accept-local ipcp-accept-remote connect '/usr/bin/chat -s -v -f /tmp/chat-connect'
 
-int args_setup(void *ctx, char *apn)
+int args_setup(char *args[32], char *chat_file, char *apn)
 {
-    dial_t *dial = ctx;
-    PPPDmodule_t *pppd = dial->pppd;
-
-    if (!dial)
+    if (chat_file_config(chat_file, apn) != 0)
         return -1;
 
-    if (!pppd)
-        return -2;
-
-    if (!pppd->chat_file)
-        return -3;
-
-    if (chat_file_config(pppd->chat_file, apn) != 0)
-        return -4;
-
     int i = 0;
-    char **argv = pppd->args;
 
     static char chat_connect[64];
     memset(chat_connect, 0, sizeof(chat_connect));
-    sprintf(chat_connect, "chat -s -v -f %s", pppd->chat_file);
+    sprintf(chat_connect, "chat -s -v -f %s", chat_file);
 
-    argv[i++] = "pppd";
-    // argv[i++] = "modem";
-	// argv[i++] = "crtscts";
-    argv[i++] = "debug";
-    argv[i++] = "nodetach";
-    argv[i++] = "/dev/ttyUSB0";
-    argv[i++] = "115200";
-    argv[i++] = "usepeerdns";
-    argv[i++] = "noauth";
-    argv[i++] = "noipdefault";
-    argv[i++] = "novj";
-    argv[i++] = "novjccomp";
-    argv[i++] = "noccp";
-    argv[i++] = "defaultroute";
-    argv[i++] = "ipcp-accept-local";
-    argv[i++] = "ipcp-accept-remote";
-    argv[i++] = "connect";
-    argv[i++] = chat_connect;
-    // argv[i++] = "disconnect"
-    // argv[i++] = chat_disconnect;
-    argv[i++] = (char*)0;
+    args[i++] = "pppd";
+    // args[i++] = "modem";
+	// args[i++] = "crtscts";
+    args[i++] = "debug";
+    args[i++] = "nodetach";
+    args[i++] = "/dev/ttyUSB0";
+    args[i++] = "115200";
+    args[i++] = "usepeerdns";
+    args[i++] = "noauth";
+    args[i++] = "noipdefault";
+    args[i++] = "novj";
+    args[i++] = "novjccomp";
+    args[i++] = "noccp";
+    args[i++] = "defaultroute";
+    args[i++] = "ipcp-accept-local";
+    args[i++] = "ipcp-accept-remote";
+    args[i++] = "connect";
+    args[i++] = chat_connect;
+    // args[i++] = "disconnect"
+    // args[i++] = chat_disconnect;
+    args[i++] = (char*)0;
 
     return 0;
 }

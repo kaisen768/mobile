@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 #include "uv.h"
-#include "PPPDmodule_paras.h"
+#include "pppd/pppd.h"
 
 typedef enum dial_status_e {
     DIAL_UNOPENED = 0,
@@ -18,14 +18,13 @@ typedef struct dial_s {
     /* dial status */
     dial_status_t status;
 
-    /* PPPD processor parameters */
-    PPPDmodule_t *pppd;
+    /* pppd */
+    pppd_module_t pppd;
 
     /* private - read only */
     uv_process_t _proc;
     uv_process_options_t _opts;
     uv_pipe_t _pipe_read;
-    uv_buf_t _buf;
 
     /** 
      * 4G module pppd dial start
@@ -45,29 +44,12 @@ typedef struct dial_s {
     void (*stop)(struct dial_s *thiz);
 
     /** 
-     * APN Adaptation
-     * 
-     * @thiz: this
-     * @return 
-     */
-    int (*args)(void *thiz, char *apn);
-
-    /** 
      * Check pppd is online
      * 
      * @thiz: this
      * @return true is returned if module online, else false
      */
     bool (*online)(struct dial_s *thiz);
-
-    /** 
-     * PPP Parameter setup
-     * 
-     * @thiz: tihs
-     * 
-     * @return none
-     */
-    void (*ppp_setup)(struct dial_s *thiz, const char *interface, const char *name, const char *chat_file);
 } dial_t;
 
 int dial_init(dial_t *dial, uv_loop_t *loop);

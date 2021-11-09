@@ -43,7 +43,6 @@ typedef struct atchannel_s {
 
     /* private */
     uv_pipe_t   _pipe;
-    uv_buf_t    _buf;
     uv_async_t  _async;
     uv_timer_t  _timer;
 

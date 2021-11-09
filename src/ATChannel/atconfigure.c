@@ -74,9 +74,32 @@ void atconfigure_handler(void *handle)
 {
     uv_timer_t *timer = handle;
     atchannel_t *atchannel = timer->data;
+    shm_4Gmodule_t *me909s = atchannel->me909s;
+
+    // fprintf(stderr, " ---- atconfigure_handler status : %d\n", atconfigure_step);
 
     switch (atconfigure_step) {
     case ATCONFIGURE_READY:
+        if (atchannel->reset == ATRESET_NOACTIONS && 
+            me909s->sim == SIM_STATE_AVAILABLE && 
+            judge_4Gmodule_para(me909s, ME909S_ID_CREG) == true) 
+        {
+            atchannel->status = ATCHANNEL_READY;
+        } else {
+            if (me909s->sim != SIM_STATE_AVAILABLE) {
+                reset_shm_4Gmodule(me909s, ME909S_ID_CPIN);
+                reset_shm_4Gmodule(me909s, ME909S_ID_CMEERROR);
+                reset_shm_4Gmodule(me909s, ME909S_ID_CREG);
+                ATCONFIGURE_STEP_JUMPTO(ATCONFIGURE_HOTPLUS);
+            }
+
+            if (atchannel->reset == ATRESET_SUCCESS) {
+                atchannel->reset = ATRESET_NOACTIONS;
+                reset_shm_4Gmodule(me909s, ME909S_ID_ALL);
+                ATCONFIGURE_STEP_JUMPTO(ATCONFIGURE_IDENTIFICATION);
+            }
+            atchannel->status = ATCHANNEL_PROCESSING;
+        }
         goto delay1000ms;
 
     case ATCONFIGURE_IDENTIFICATION:

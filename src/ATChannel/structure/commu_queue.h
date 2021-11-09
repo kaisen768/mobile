@@ -81,7 +81,7 @@ struct commu_queue_t {
     void *(*take)(struct commu_queue_t * const thiz);
 };
 
-struct commu_queue_t *lb_queue(const uint32_t capacity);
+struct commu_queue_t *commu_queue(const uint32_t capacity);
 
 #ifdef __cplusplus
 }

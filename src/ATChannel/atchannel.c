@@ -3,13 +3,15 @@
 #include "atcommand.h"
 #include "cmdhandle.h"
 
-#define ATCHANNEL_BUFFER_MAX_SIZE   512
+#define ATCHANNEL_BUFFER_MAX_SIZE   1024
+
+static char receivebuffer[ATCHANNEL_BUFFER_MAX_SIZE];
 
 static void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf)
 {
-    struct atchannel_s *atchannel = handle->data;
-    buf->base = atchannel->_buf.base;
-    buf->len = atchannel->_buf.len;
+    buf->base = receivebuffer;
+    buf->len = ATCHANNEL_BUFFER_MAX_SIZE;
+    memset(receivebuffer, 0, ATCHANNEL_BUFFER_MAX_SIZE);
 }
 
 static void on_stream_receive(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
@@ -27,8 +29,8 @@ static void on_stream_receive(uv_stream_t *stream, ssize_t nread, const uv_buf_t
         }
     }
 
-    fprintf(stderr, "%s\n", buf->base);
-    fprintf(stderr, "----------------------------------------------\n\n");
+    // fprintf(stderr, "%s\n", buf->base);
+    // fprintf(stderr, "----------------------------------------------\n\n");
 
     command_handle(buf->base, atchannel);
 
@@ -38,13 +40,14 @@ static void on_stream_receive(uv_stream_t *stream, ssize_t nread, const uv_buf_t
 static void at_command_sendto_processor(uv_async_t *handle)
 {
     uv_buf_t *wb;
-    struct atchannel_s *atcahnnel = handle->data;
+    struct atchannel_s *atchannel = handle->data;
+    struct serial_s *serial = &atchannel->serial;
 
     do {
-        wb = (uv_buf_t*)atcahnnel->_queue->poll(atcahnnel->_queue);
+        wb = (uv_buf_t*)atchannel->_queue->poll(atchannel->_queue);
 
         if (wb) {
-            atcahnnel->serial.write(&atcahnnel->serial, wb->base, wb->len);
+            serial->write(serial, wb->base, wb->len);
 
             free(wb->base);
             free(wb);
@@ -83,45 +86,39 @@ static void start(struct atchannel_s *atchannel, const char *uart_name, int netm
     if (!atchannel || !atchannel->loop)
         return;
 
+    struct serial_s *serial = &atchannel->serial;
+
     if (netmode > -1)
         atchannel->netmode = netmode;
 
-    if (serial_initalize(&atchannel->serial) != true)
+    if (serial_initalize(serial) != true)
         return;
 
     if (uart_name)
         atchannel->uart_name = (char*)uart_name;
 
-    atchannel->serial.fd = atchannel->serial.open(&atchannel->serial, atchannel->uart_name);
-    if (atchannel->serial.fd < 0)
+    serial->fd = serial->open(serial, atchannel->uart_name);
+    if (serial->fd < 0)
         return;
 
-    if (atchannel->serial.setup_baudrate(&atchannel->serial, 
-                        atchannel->baudrate) != true)
-    {
+    if (serial->setup_baudrate(serial, atchannel->baudrate) != true)
         goto err0;
-    }
 
     /* 4G module params */
     if (!atchannel->me909s)
         atchannel->me909s = get_shm_4Gmodule();
 
     /* AT-Command URC configure */
-    uv_pipe_init(atchannel->loop, &atchannel->_pipe, 0);
-    uv_pipe_open(&atchannel->_pipe, atchannel->serial.fd);
     atchannel->_pipe.data = atchannel;
-
-    atchannel->_buf.base = (char*)malloc(ATCHANNEL_BUFFER_MAX_SIZE);
-    if (!atchannel->_buf.base)
-        goto err1;
-    atchannel->_buf.len = ATCHANNEL_BUFFER_MAX_SIZE;
+    uv_pipe_init(atchannel->loop, &atchannel->_pipe, 0);
+    uv_pipe_open(&atchannel->_pipe, serial->fd);
 
     /* AT-Command write queue initalize */
-    atchannel->_queue = lb_queue(1000);
+    atchannel->_queue = commu_queue(1000);
 
     /* AT-Command async communication */
-    uv_async_init(atchannel->loop, &atchannel->_async, at_command_sendto_processor);
     atchannel->_async.data = atchannel;
+    uv_async_init(atchannel->loop, &atchannel->_async, at_command_sendto_processor);
 
     /* Automatic adaptation */
     atchannel->_timer.data = atchannel;
@@ -132,10 +129,12 @@ static void start(struct atchannel_s *atchannel, const char *uart_name, int netm
 
     atchannel->status = ATCHANNEL_PROCESSING;
 
+    return;
+
 err1:
     uv_close((uv_handle_t*)&atchannel->_pipe, NULL);
 err0:
-    atchannel->serial.close(&atchannel->serial);
+    serial->close(serial);
     return;
 }
 
@@ -159,12 +158,6 @@ static void stop(struct atchannel_s *atchannel)
     /* Serial pipe close */
     uv_read_stop((uv_stream_t *)&atchannel->_pipe);
     uv_close((uv_handle_t*)&atchannel->_pipe, NULL);
-
-    /* Stream receive buffer release */
-    if (atchannel->_buf.base) {
-        free(atchannel->_buf.base);
-        atchannel->_buf.base = NULL;
-    }
 
     /* Close serial port */
     atchannel->serial.close(&atchannel->serial);
@@ -208,6 +201,8 @@ int atchannel_init(atchannel_t *atchannel, uv_loop_t *loop)
     atchannel->command.cpin_get = atcommand_cpin_get;
     atchannel->command.simswitch_set = atcommand_simswitch_set;
     atchannel->command.simswitch_get = atcommand_simswitch_get;
+    atchannel->command.network_set = atcommand_network_set;
+    atchannel->command.network_get = atcommand_network_get;
     atchannel->command.monsc = atcommand_monsc;
     atchannel->command.signal = atcommand_sim_signal;
 

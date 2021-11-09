@@ -46,6 +46,14 @@ static bool setup_port_baudrate(struct serial_s *thiz, int baudrate)
     if (thiz->check_baudrate(baudrate))
         thiz->_attr.baudrate = baudrate;
 
+    // fprintf(stderr, "uart port: %s\n", thiz->_uart_name);
+    // fprintf(stderr, "uart port attr:\n");
+    // fprintf(stderr, "\t baudrate:%d\n", thiz->_attr.baudrate);
+    // fprintf(stderr, "\t data_bits:%d\n", thiz->_attr.data_bits);
+    // fprintf(stderr, "\t stop_bits:%d\n", thiz->_attr.stop_bits);
+    // fprintf(stderr, "\t parity:%d\n", thiz->_attr.parity);
+    // fprintf(stderr, "\t hardware_control:%d\n", thiz->_attr.hardware_control);
+
     thiz->setup(thiz, &thiz->_attr);
 
     return true;
