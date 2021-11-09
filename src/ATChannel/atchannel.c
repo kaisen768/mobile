@@ -1,4 +1,7 @@
-#include "atchannel.h"
+#include "cmdhandle.h"
+#include "atconfigure.h"
+#include "atcommand.h"
+#include "cmdhandle.h"
 
 #define ATCHANNEL_BUFFER_MAX_SIZE   512
 
@@ -19,13 +22,17 @@ static void on_stream_receive(uv_stream_t *stream, ssize_t nread, const uv_buf_t
 
         /* loss ttyUSB2 port (AT^RESET command or USB device loss power) */
         if (nread == UV_EOF)  {
-            atchannel->reset = ATRESET_RESTTING;
+            atchannel->reset = ATRESET_RESETTING;
             atchannel->stop(atchannel);
         }
     }
 
     fprintf(stderr, "%s\n", buf->base);
     fprintf(stderr, "----------------------------------------------\n\n");
+
+    command_handle(buf->base, atchannel);
+
+    return;
 }
 
 static void at_command_sendto_processor(uv_async_t *handle)
@@ -71,10 +78,13 @@ err0:
     return -1;
 }
 
-static void start(struct atchannel_s *atchannel, const char *uart_name)
+static void start(struct atchannel_s *atchannel, const char *uart_name, int netmode)
 {
     if (!atchannel || !atchannel->loop)
         return;
+
+    if (netmode > -1)
+        atchannel->netmode = netmode;
 
     if (serial_initalize(&atchannel->serial) != true)
         return;
@@ -91,6 +101,10 @@ static void start(struct atchannel_s *atchannel, const char *uart_name)
     {
         goto err0;
     }
+
+    /* 4G module params */
+    if (!atchannel->me909s)
+        atchannel->me909s = get_shm_4Gmodule();
 
     /* AT-Command URC configure */
     uv_pipe_init(atchannel->loop, &atchannel->_pipe, 0);
@@ -112,7 +126,7 @@ static void start(struct atchannel_s *atchannel, const char *uart_name)
     /* Automatic adaptation */
     atchannel->_timer.data = atchannel;
     uv_timer_init(atchannel->loop, &atchannel->_timer);
-    uv_timer_start(&atchannel->_timer, atconfigure_handler, 1000, 1000);
+    uv_timer_start(&atchannel->_timer, (uv_timer_cb)atconfigure_handler, 1000, 1000);
 
     uv_read_start((uv_stream_t*)&atchannel->_pipe, alloc_buffer, on_stream_receive);
 
@@ -170,8 +184,32 @@ int atchannel_init(atchannel_t *atchannel, uv_loop_t *loop)
     atchannel->status = ATCHANNEL_UNOPENED;
     atchannel->reset = ATRESET_NOACTIONS;
 
+    atchannel->me909s = get_shm_4Gmodule();
+
+    atchannel->netmode = ME909S_NETMODE_AUTO;
+
     atchannel->start = start;
     atchannel->stop = stop;
+    atchannel->sendto = at_command_sendto;
+    atchannel->determine_simswitch = determine_simswitch;
+
+    atchannel->command.indentification = atcommand_indentification;
+    atchannel->command.sysinfoex = atcommand_sysinfoex;
+    atchannel->command.unconnect = atcommand_unconnect;
+    atchannel->command.ledctrl_set = atcommand_ledctrl_set;
+    atchannel->command.ledctrl_get = atcommand_ledctrl_get;
+    atchannel->command.syscfgex_set = atcommand_netmode_set;
+    atchannel->command.syscfgex_get = atcommand_netmode_get;
+    atchannel->command.ipcfl_set = atcommand_ipcfl_set;
+    atchannel->command.ipcfl_get = atcommand_ipcfl_get;
+    atchannel->command.eCall_set = atcommand_eCall_set;
+    atchannel->command.eCall_get = atcommand_eCall_get;
+    atchannel->command.cpin_set = atcommand_cpin_set;
+    atchannel->command.cpin_get = atcommand_cpin_get;
+    atchannel->command.simswitch_set = atcommand_simswitch_set;
+    atchannel->command.simswitch_get = atcommand_simswitch_get;
+    atchannel->command.monsc = atcommand_monsc;
+    atchannel->command.signal = atcommand_sim_signal;
 
     return 0;
 }

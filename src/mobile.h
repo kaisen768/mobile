@@ -2,6 +2,9 @@
 #define _MOBILE_H_
 
 #include "uv.h"
+#include "ATChannel/atchannel.h"
+#include "apnconf.h"
+#include "Dial/dial.h"
 
 typedef struct mobile_s {
     /* Globle loop */
@@ -10,6 +13,15 @@ typedef struct mobile_s {
     /* private */
     uv_timer_t _timer;
     void (*_hardware_reset_cb)(void *extra);
+
+    /* ATChannel */
+    atchannel_t atchannel;
+
+    /* APN value configure */
+    apnconf_t apnconf;
+
+    /* Dial */
+    dial_t dial;
 
     /** 
      * Mobile module start work

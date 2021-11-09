@@ -24,6 +24,7 @@ typedef struct shm_4Gmodule_s {
 #define me909s_srv_state(shm) (shm->srv)
 #define me909s_mcc(shm) (shm->monsc.cell_paras.mcc)
 #define me909s_mnc(shm) (shm->monsc.cell_paras.mnc)
+#define me909s_acqorder(shm) (shm->syscfgex.acqorder)
 
 shm_4Gmodule_t *get_shm_4Gmodule(void);
 
@@ -46,6 +47,6 @@ typedef enum _me909s_para_id_e {
 } me909s_para_id_t;
 
 void reset_shm_4Gmodule(shm_4Gmodule_t *shm, me909s_para_id_t id);
-bool judge_4Gmodule_para(void *para, me909s_para_id_t id);
+bool judge_4Gmodule_para(shm_4Gmodule_t *shm, me909s_para_id_t id);
 
 #endif

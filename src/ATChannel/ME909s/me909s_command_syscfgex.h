@@ -126,9 +126,7 @@
 #define ME909S_CMD_SYSCFGEX_RESPONSE    "^SYSCFGEX:"
 #define ME909S_CMD_SYSCFGEX_SIZE        64
 
-typedef struct me909s_syscfgex_s me909s_syscfgex_t;
-
-struct me909s_syscfgex_s 
+typedef struct me909s_syscfgex_s 
 {
     int8_t acqorder[16];
     uint64_t band;
@@ -137,7 +135,21 @@ struct me909s_syscfgex_s
     uint64_t lteband;
     char reserve1[64];
     char reserve2[64];
-};
+} me909s_syscfgex_t;
+
+typedef enum me909s_syscfgex_netmode_e {
+    ME909S_NETMODE_AUTO = 0,
+    ME909S_NETMODE_4G3G2G,
+    ME909S_NETMODE_4G3G,
+    ME909S_NETMODE_3G2G,
+    ME909S_NETMODE_4G,
+    ME909S_NETMODE_3G,
+    ME909S_NETMODE_2G,
+    ME909S_NETMODE_INVAIL,
+} me909s_syscfgex_netmode_t;
+
+static char *me909s_syscfgex_mode_to_acqorder(me909s_syscfgex_netmode_t mode);
+static me909s_syscfgex_netmode_t me909s_syscfgex_acqorder_to_mode(const char *acqorder);
 
 static inline void me909s_syscfgex_decode(const char *dat, me909s_syscfgex_t *syscfgex)
 {
@@ -191,7 +203,7 @@ static inline void me909s_syscfgex_decode(const char *dat, me909s_syscfgex_t *sy
     }
 }
 
-static inline int me909s_syscfgex_code(char *cmd, me909s_cmd_motion_t motion, const char *acqorder)
+static inline int me909s_syscfgex_code(char *cmd, me909s_cmd_motion_t motion, me909s_syscfgex_netmode_t mode)
 {
     int r;
 
@@ -201,9 +213,8 @@ static inline int me909s_syscfgex_code(char *cmd, me909s_cmd_motion_t motion, co
     switch (motion)
     {
     case CMD_MOTION_SETUP:
-        if (!acqorder)
-            return -1;
-        r = sprintf(cmd, "%s=\"%s\",3FFFFFFF,1,2,7FFFFFFFFFFFFFFF,,\r\n", ME909S_CMD_SYSCFGEX, acqorder);
+        r = sprintf(cmd, "%s=\"%s\",3FFFFFFF,1,2,7FFFFFFFFFFFFFFF,,\r\n", ME909S_CMD_SYSCFGEX, 
+                me909s_syscfgex_mode_to_acqorder(mode));
         break;
 
     case CMD_MOTION_INQUIRE:
@@ -230,6 +241,54 @@ static inline void me909s_syscfgex_debug(me909s_syscfgex_t *syscfgex)
     ME909S_DEBUG_PRINTF(("srvdomain:\t%u\n", syscfgex->srvdomain));
     ME909S_DEBUG_PRINTF(("lteband:\t%016llX\n", syscfgex->lteband));
     ME909S_DEBUG_PRINTF(("**********************************************************\n\n"));
+}
+
+char *me909s_syscfgex_mode_to_acqorder(me909s_syscfgex_netmode_t mode)
+{
+    switch (mode) {
+    case ME909S_NETMODE_4G3G2G:
+        return (char *)"030201";
+
+    case ME909S_NETMODE_4G3G:
+        return (char *)"0302";
+
+    case ME909S_NETMODE_3G2G:
+        return (char *)"0201";
+
+    case ME909S_NETMODE_4G:
+        return (char *)"03";
+
+    case ME909S_NETMODE_3G:
+        return (char *)"02";
+
+    case ME909S_NETMODE_2G:
+        return (char *)"01";
+
+    case ME909S_NETMODE_INVAIL:
+    case ME909S_NETMODE_AUTO:
+    default:
+        return (char *)"00";
+    }
+}
+
+me909s_syscfgex_netmode_t me909s_syscfgex_acqorder_to_mode(const char *acqorder)
+{
+    if (strcmp(acqorder, "00"))
+        return ME909S_NETMODE_AUTO;
+    else if (strcmp(acqorder, "03"))
+        return ME909S_NETMODE_4G;
+    else if (strcmp(acqorder, "02"))
+        return ME909S_NETMODE_3G;
+    else if (strcmp(acqorder, "01"))
+        return ME909S_NETMODE_2G;
+    else if (strcmp(acqorder, "030201"))
+        return ME909S_NETMODE_4G3G2G;
+    else if (strcmp(acqorder, "0302"))
+        return ME909S_NETMODE_4G3G;
+    else if (strcmp(acqorder, "0201"))
+        return ME909S_NETMODE_3G2G;
+    else
+        return ME909S_NETMODE_INVAIL;
 }
 
 #endif

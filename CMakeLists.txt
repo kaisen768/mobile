@@ -9,11 +9,14 @@ project(
   VERSION ${MOBILE_VERSION}
   LANGUAGES C)
 
+add_compile_options(-std=gnu11)
+
 # configure
 ######################################################################
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 option(MOBILE_UV_STATIC "Uv use static library" OFF)
+option(MOBILE_MXML_STATIC "Mxml use static library" OFF)
 option(MOBILE_USE_JEMALLOC "Use Jemalloc" OFF)
 
 include(CMakeDependentOption)
@@ -24,6 +27,11 @@ if(MOBILE_UV_STATIC)
 endif()
 find_package(uv REQUIRED)
 
+if(MOBILE_MXML_STATIC)
+  set(MXML_USE_STATIC_LIBS TRUE)
+endif()
+find_package(Mxml REQUIRED)
+
 if(MOBILE_USE_JEMALLOC)
   find_package(Jemalloc)
 endif()
@@ -33,6 +41,7 @@ endif()
 mark_as_advanced(mobile_include_dirs)
 
 list(APPEND mobile_include_dirs ${UV_INCLUDE_DIR})
+list(APPEND mobile_include_dirs ${MXML_INCLUDE_DIR})
 
 if(MOBILE_USE_JEMALLOC)
   list(APPEND mobile_include_dirs ${JEMALLOC_INCLUDE_DIR})
@@ -79,6 +88,7 @@ function(mobile_library_generator name type target_name)
 
   mark_as_advanced(__mobile_opensource_libraries)
   list(APPEND __mobile_opensource_libraries ${UV_LIBRARY})
+  list(APPEND __mobile_opensource_libraries ${MXML_LIBRARY})
   if(MOBILE_USE_JEMALLOC)
     list(APPEND __mobile_opensource_libraries ${JEMALLOC_LIBRARY})
   endif()
@@ -124,6 +134,12 @@ target_include_directories(
   INTERFACE
     "$<BUILD_INTERFACE:${UV_INCLUDE_DIR}>"
     "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}>")
+
+target_include_directories(
+  mobile-static SYSTEM
+    INTERFACE
+      "$<BUILD_INTERFACE:${MXML_INCLUDE_DIR}>"
+      "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}>")
 
 if(MOBILE_USE_JEMALLOC)
   target_include_directories(
