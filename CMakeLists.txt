@@ -158,7 +158,7 @@ endif()
 
 # example compile
 ######################################################################
-set(EXAMPLE_NAME "${PROJECT_NAME}exc")
+set(EXAMPLE_NAME "huawei${PROJECT_NAME}")
 
 add_executable(${EXAMPLE_NAME} ${mobile_SOURCE_DIR}/example/example.c)
 
