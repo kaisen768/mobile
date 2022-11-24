@@ -9,7 +9,7 @@ project(
   VERSION ${MOBILE_VERSION}
   LANGUAGES C)
 
-add_compile_options(-std=gnu11)
+add_compile_options(-std=gnu11 -no-pie)
 
 # configure
 ######################################################################
@@ -99,7 +99,7 @@ function(mobile_library_generator name type target_name)
   if(MOBILE_USE_JEMALLOC)
     list(APPEND __mobile_opensource_libraries ${JEMALLOC_LIBRARY})
   endif()
-  target_link_libraries(${name} PUBLIC ${__mobile_opensource_libraries})
+  target_link_libraries(${name} PUBLIC ${__mobile_opensource_libraries} pthread)
 
   if(type STREQUAL "SHARED")
     set_target_properties(
